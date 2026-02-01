@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { ActionButton, MatrixCell, SavedRange } from '../types/poker';
 import { DEFAULT_COLORS } from './ActionButtons';
@@ -7,11 +7,12 @@ import ColorEditor from './ColorEditor';
 import PokerMatrix from './PokerMatrix';
 
 interface RangeEditorProps {
-  onRangeSave: (range: Omit<SavedRange, 'id' | 'createdAt'>) => void;
+  onRangeSave: (range: Omit<SavedRange, 'id' | 'createdAt'>, existingRangeId?: string) => void;
   currentFolderId?: string | null;
+  currentRange?: SavedRange;
 }
 
-export default function RangeEditor({ onRangeSave, currentFolderId = null }: RangeEditorProps) {
+export default function RangeEditor({ onRangeSave, currentFolderId = null, currentRange }: RangeEditorProps) {
   const [rangeName, setRangeName] = useState('');
   const [cells, setCells] = useState<MatrixCell[]>([]);
   const [actions, setActions] = useState<ActionButton[]>([
@@ -19,6 +20,22 @@ export default function RangeEditor({ onRangeSave, currentFolderId = null }: Ran
   ]);
   const [activeActionId, setActiveActionId] = useState(1);
   const [editingAction, setEditingAction] = useState<ActionButton | null>(null);
+
+  // Загрузка данных range при открытии для редактирования
+  useEffect(() => {
+    if (currentRange) {
+      setRangeName(currentRange.name);
+      setCells(currentRange.cells);
+      setActions(currentRange.actions);
+      setActiveActionId(currentRange.actions[0]?.id || 1);
+    } else {
+      // Сброс при создании нового range
+      setRangeName('');
+      setCells([]);
+      setActions([{ id: 1, name: 'Action 1', color: DEFAULT_COLORS[0] }]);
+      setActiveActionId(1);
+    }
+  }, [currentRange]);
 
   const handleActionAdd = () => {
     if (actions.length >= 7) return;
@@ -97,12 +114,17 @@ export default function RangeEditor({ onRangeSave, currentFolderId = null }: Ran
       name: rangeName,
       cells: cells,
       actions: actions,
-      folderId: currentFolderId
+      folderId: currentRange?.folderId ?? currentFolderId
     };
 
-    onRangeSave(range);
-    setRangeName('');
-    setCells([]);
+    // Передаем ID если редактируем существующий range
+    onRangeSave(range, currentRange?.id);
+    
+    // Очищаем форму только если это был новый range
+    if (!currentRange) {
+      setRangeName('');
+      setCells([]);
+    }
   };
 
   const activeColor = actions.find(a => a.id === activeActionId)?.color || null;
@@ -148,7 +170,7 @@ export default function RangeEditor({ onRangeSave, currentFolderId = null }: Ran
                        flex items-center justify-center gap-2 shadow-lg"
           >
             <Save size={20} />
-            Save Range
+            {currentRange ? 'Update Range' : 'Save Range'}
           </button>
         </div>
       </div>
