@@ -107,6 +107,36 @@ export async function saveRangeToSupabase(range: Omit<SavedRange, 'id' | 'create
   };
 }
 
+export async function updateRangeToSupabase(rangeId: string, range: Omit<SavedRange, 'id' | 'createdAt'>): Promise<SavedRange | null> {
+  const { data, error } = await supabase
+    .from('ranges')
+    .update({
+      name: range.name,
+      folder_id: range.folderId,
+      cells: range.cells,
+      actions: range.actions
+    })
+    .eq('id', rangeId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error updating range:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    folderId: data.folder_id,
+    cells: data.cells,
+    actions: data.actions,
+    createdAt: data.created_at
+  };
+}
+
 export async function deleteRangeFromSupabase(rangeId: string): Promise<boolean> {
   const { error } = await supabase
     .from('ranges')
