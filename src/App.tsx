@@ -4,7 +4,7 @@ import RangeEditor from './components/RangeEditor';
 import RangeTrainer from './components/RangeTrainer';
 import Sidebar from './components/Sidebar';
 import { SavedRange, Folder } from './types/poker';
-import { loadFolders, saveFolder, loadRangesFromSupabase, saveRangeToSupabase, updateFolderParent, updateRangeFolder } from './utils/supabaseStorage';
+import { loadFolders, saveFolder, loadRangesFromSupabase, saveRangeToSupabase, updateRangeToSupabase, updateFolderParent, updateRangeFolder } from './utils/supabaseStorage';
 
 type TabType = 'editor' | 'trainer';
 
@@ -31,13 +31,25 @@ function App() {
     loadData();
   }, []);
 
-  const handleRangeSave = async (range: Omit<SavedRange, 'id' | 'createdAt'>) => {
-    const savedRange = await saveRangeToSupabase(range);
-    if (savedRange) {
-      setSavedRanges([...savedRanges, savedRange]);
-      alert(`Range "${savedRange.name}" saved successfully!`);
+  const handleRangeSave = async (range: Omit<SavedRange, 'id' | 'createdAt'>, existingRangeId?: string) => {
+    if (existingRangeId) {
+      // Обновление существующего range
+      const updatedRange = await updateRangeToSupabase(existingRangeId, range);
+      if (updatedRange) {
+        setSavedRanges(savedRanges.map(r => r.id === existingRangeId ? updatedRange : r));
+        alert(`Range "${updatedRange.name}" updated successfully!`);
+      } else {
+        alert('Failed to update range');
+      }
     } else {
-      alert('Failed to save range');
+      // Создание нового range
+      const savedRange = await saveRangeToSupabase(range);
+      if (savedRange) {
+        setSavedRanges([...savedRanges, savedRange]);
+        alert(`Range "${savedRange.name}" saved successfully!`);
+      } else {
+        alert('Failed to save range');
+      }
     }
   };
 
@@ -117,6 +129,8 @@ function App() {
     }
   };
 
+  const currentRange = currentRangeId ? savedRanges.find(r => r.id === currentRangeId) : undefined;
+
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
       <Sidebar
@@ -188,7 +202,11 @@ function App() {
 
         <main className="flex-1 overflow-y-auto px-4 py-8">
           {activeTab === 'editor' ? (
-            <RangeEditor onRangeSave={handleRangeSave} currentFolderId={currentFolderId} />
+            <RangeEditor 
+              onRangeSave={handleRangeSave} 
+              currentFolderId={currentFolderId} 
+              currentRange={currentRange}
+            />
           ) : (
             <RangeTrainer
               savedRanges={savedRanges}
