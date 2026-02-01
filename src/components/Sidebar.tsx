@@ -41,7 +41,7 @@ export default function Sidebar({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [draggedItem, setDraggedItem] = useState<{ type: 'folder' | 'range'; id: string } | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{ type: 'folder' | 'range'; id: string; originalFolderId?: string | null } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [contextMenuRangeId, setContextMenuRangeId] = useState<string | null>(null);
@@ -67,8 +67,8 @@ export default function Sidebar({
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, type: 'folder' | 'range', id: string) => {
-    setDraggedItem({ type, id });
+  const handleDragStart = (e: React.DragEvent, type: 'folder' | 'range', id: string, folderId?: string | null) => {
+    setDraggedItem({ type, id, originalFolderId: folderId });
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -79,6 +79,7 @@ export default function Sidebar({
 
     if (!draggedItem) return;
 
+    // Для папок - не позволяем дропать папку на саму себя
     if (draggedItem.type === 'folder' && draggedItem.id === targetFolderId) {
       return;
     }
@@ -107,6 +108,7 @@ export default function Sidebar({
         }
       }
     } else {
+      // Для range - разрешаем drop только на папки или в ту же папку где был
       onMoveRange(draggedItem.id, targetFolderId);
     }
 
@@ -226,7 +228,7 @@ export default function Sidebar({
             <div
               key={range.id}
               draggable
-              onDragStart={(e) => handleDragStart(e, 'range', range.id)}
+              onDragStart={(e) => handleDragStart(e, 'range', range.id, range.folderId)}
               onDragOver={(e) => handleDragOver(e, parentId)}
               onDragEnd={handleDragEnd}
               onContextMenu={(e) => handleRangeContextMenu(e, range.id)}
@@ -263,8 +265,6 @@ export default function Sidebar({
 
       <div
         className="flex-1 overflow-y-auto p-3 space-y-1"
-        onDragOver={(e) => handleDragOver(e, null)}
-        onDrop={(e) => handleDrop(e, null)}
       >
         {renderFolderTree(null)}
       </div>
@@ -370,7 +370,7 @@ export default function Sidebar({
           </button>
           <button
             onClick={handleDeleteClick}
-            className="w-full px-4 py-2 text-left hover:bg-red-50 text-red-600
+            className="w-full px-4 py-2 text-left hover:bg-blue-50 text-red-600
                        font-semibold transition-colors flex items-center gap-2"
           >
             <Trash2 size={16} />
