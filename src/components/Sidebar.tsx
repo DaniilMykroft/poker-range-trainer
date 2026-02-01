@@ -166,8 +166,16 @@ export default function Sidebar({
   };
 
   const handleRangeClick = (e: React.MouseEvent, rangeId: string) => {
+    // Игнорируем правую кнопку (она для контекстного меню)
     if (e.button === 2) return;
-    onRangeSelect(rangeId);
+    
+    // Левый клик - показываем контекстное меню
+    e.preventDefault();
+    e.stopPropagation();
+    const element = e.currentTarget as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    setContextMenu({ x: rect.left, y: rect.bottom + 8 });
+    setContextMenuRangeId(rangeId);
   };
 
   const handleEditClick = () => {
