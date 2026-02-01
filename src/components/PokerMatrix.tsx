@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { MatrixCell } from '../types/poker';
 import { generatePokerMatrix } from '../utils/pokerHands';
 
@@ -20,9 +20,11 @@ export default function PokerMatrix({
   comparisonCells = null
 }: PokerMatrixProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
   const matrixRef = useRef<HTMLDivElement>(null);
   const matrix = generatePokerMatrix();
 
+  // Инициализация ячеек только один раз
   useEffect(() => {
     if (cells.length === 0) {
       const initialCells: MatrixCell[] = [];
@@ -37,16 +39,16 @@ export default function PokerMatrix({
       }
       onCellsChange(initialCells);
     }
-  }, [cells.length]);
+  }, []); // Пустой массив зависимостей - выполняется только при монтировании
 
-  const getCellIndex = (row: number, col: number) => row * 13 + col;
+  const getCellIndex = useCallback((row: number, col: number) => row * 13 + col, []);
 
-  const paintCell = (row: number, col: number) => {
-    if (!activeColor) return;
-
+  const paintCell = useCallback((row: number, col: number) => {
+    if (!activeColor || isTrainerMode) return;
+    
     const index = getCellIndex(row, col);
     const newCells = [...cells];
-
+    
     if (newCells[index].color === activeColor && newCells[index].actionId === activeActionId) {
       newCells[index].color = null;
       newCells[index].actionId = null;
@@ -54,51 +56,103 @@ export default function PokerMatrix({
       newCells[index].color = activeColor;
       newCells[index].actionId = activeActionId;
     }
-
+    
     onCellsChange(newCells);
-  };
+  }, [activeColor, activeActionId, cells, getCellIndex, onCellsChange, isTrainerMode]);
 
-  const handleMouseDown = (row: number, col: number) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent, row: number, col: number) => {
     if (isTrainerMode && comparisonCells) {
       return;
     }
+    e.preventDefault(); // Предотвращаем выделение текста
     setIsDragging(true);
     paintCell(row, col);
-  };
+  }, [isTrainerMode, comparisonCells, paintCell]);
 
-  const handleMouseEnter = (row: number, col: number) => {
-    if (isDragging) {
+  const handleMouseEnter = useCallback((row: number, col: number) => {
+    if (isDragging && !isTrainerMode) {
       paintCell(row, col);
     }
-  };
+  }, [isDragging, isTrainerMode, paintCell]);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-  };
-
-  useEffect(() => {
-    const handleGlobalMouseUp = () => setIsDragging(false);
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
 
-  const getCellComparison = (index: number): 'correct' | 'incorrect' | null => {
-    if (!comparisonCells) return null;
+  // Обработка touch событий для мобильных устройств
+  const handleTouchStart = useCallback((e: React.TouchEvent, row: number, col: number) => {
+    if (isTrainerMode && comparisonCells) {
+      return;
+    }
+    e.preventDefault();
+    setIsTouchDragging(true);
+    paintCell(row, col);
+  }, [isTrainerMode, comparisonCells, paintCell]);
 
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isTouchDragging || isTrainerMode) return;
+    
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    if (element && element.hasAttribute('data-cell')) {
+      const row = parseInt(element.getAttribute('data-row') || '0', 10);
+      const col = parseInt(element.getAttribute('data-col') || '0', 10);
+      paintCell(row, col);
+    }
+  }, [isTouchDragging, isTrainerMode, paintCell]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsTouchDragging(false);
+  }, []);
+
+  // Глобальные обработчики для предотвращения застревания dragging
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+    };
+    
+    const handleGlobalTouchEnd = () => {
+      setIsTouchDragging(false);
+    };
+
+    // Обработка ухода курсора за пределы окна
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.relatedTarget === null) {
+        setIsDragging(false);
+      }
+    };
+
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    document.addEventListener('touchend', handleGlobalTouchEnd);
+    document.addEventListener('mouseleave', handleMouseLeave);
+    
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      document.removeEventListener('touchend', handleGlobalTouchEnd);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
+  const getCellComparison = useCallback((index: number): 'correct' | 'incorrect' | null => {
+    if (!comparisonCells) return null;
+    
     const userCell = cells[index];
     const originalCell = comparisonCells[index];
-
+    
     if (!originalCell.color && !userCell.color) return null;
-
+    
     return userCell.color === originalCell.color &&
            userCell.actionId === originalCell.actionId ? 'correct' : 'incorrect';
-  };
+  }, [cells, comparisonCells]);
 
   return (
     <div
       ref={matrixRef}
-      className={`grid grid-cols-13 gap-1 select-none ${isDragging ? 'cursor-crosshair' : ''}`}
+      className={`grid grid-cols-13 gap-1 select-none ${isDragging || isTouchDragging ? 'cursor-crosshair' : ''}`}
       onMouseLeave={handleMouseUp}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{ maxWidth: '600px', margin: '0 auto' }}
     >
       {matrix.map((row, rowIndex) =>
@@ -106,13 +160,15 @@ export default function PokerMatrix({
           const index = getCellIndex(rowIndex, colIndex);
           const cell = cells[index] || { hand, color: null, actionId: null };
           const comparison = getCellComparison(index);
-
           const isPocketPair = rowIndex === colIndex;
           const isSuited = colIndex > rowIndex;
 
           return (
             <div
               key={`${rowIndex}-${colIndex}`}
+              data-cell="true"
+              data-row={rowIndex}
+              data-col={colIndex}
               className={`
                 aspect-square flex items-center justify-center text-xs font-bold
                 border-2 rounded cursor-pointer transition-all
@@ -123,14 +179,12 @@ export default function PokerMatrix({
               `}
               style={{
                 backgroundColor: cell.color || undefined,
-                color: cell.color ? '#fff' : '#000'
+                color: cell.color ? '#fff' : '#000',
+                touchAction: 'none' // Предотвращаем прокрутку на мобильных
               }}
-              onMouseDown={() => handleMouseDown(rowIndex, colIndex)}
+              onMouseDown={(e) => handleMouseDown(e, rowIndex, colIndex)}
               onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                handleMouseDown(rowIndex, colIndex);
-              }}
+              onTouchStart={(e) => handleTouchStart(e, rowIndex, colIndex)}
             >
               {hand}
             </div>
