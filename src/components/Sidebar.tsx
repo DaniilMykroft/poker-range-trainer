@@ -41,8 +41,8 @@ export default function Sidebar({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [draggedItem, setDraggedItem] = useState<{ type: 'folder' | 'range'; id: string; originalFolderId?: string | null } | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{ type: 'folder' | 'range'; id: string; folderId?: string | null } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ type: 'folder' | 'range'; id: string | null } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [contextMenuRangeId, setContextMenuRangeId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -68,33 +68,55 @@ export default function Sidebar({
   };
 
   const handleDragStart = (e: React.DragEvent, type: 'folder' | 'range', id: string, folderId?: string | null) => {
-    setDraggedItem({ type, id, originalFolderId: folderId });
+    setDraggedItem({ type, id, folderId });
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent, targetFolderId: string | null) => {
+  const handleDragOver = (e: React.DragEvent, targetType: 'folder' | 'range', targetId: string | null, targetFolderId?: string | null) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
 
     if (!draggedItem) return;
 
-    // Для папок - не позволяем дропать папку на саму себя
-    if (draggedItem.type === 'folder' && draggedItem.id === targetFolderId) {
+    // Не позволяем дропать элемент на сам себя
+    if (draggedItem.id === targetId) {
+      setDropTarget(null);
       return;
     }
 
-    setDropTarget(targetFolderId);
+    // Для папок - не позволяем дропать папку на саму себя
+    if (draggedItem.type === 'folder' && targetType === 'folder' && draggedItem.id === targetId) {
+      setDropTarget(null);
+      return;
+    }
+
+    // Устанавливаем drop target с информацией о типе
+    if (targetType === 'folder') {
+      setDropTarget({ type: 'folder', id: targetId });
+    } else {
+      // Для range - показываем что можем дропнуть, но реально дропаем в папку где этот range
+      setDropTarget({ type: 'range', id: targetFolderId });
+    }
   };
 
-  const handleDrop = (e: React.DragEvent, targetFolderId: string | null) => {
+  const handleDrop = (e: React.DragEvent, targetType: 'folder' | 'range', targetId: string | null, targetFolderId?: string | null) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!draggedItem) return;
 
+    // Не позволяем дропать на себя
+    if (draggedItem.id === targetId) {
+      setDraggedItem(null);
+      setDropTarget(null);
+      return;
+    }
+
     if (draggedItem.type === 'folder') {
-      if (draggedItem.id !== targetFolderId) {
+      const actualTargetId = targetType === 'folder' ? targetId : targetFolderId;
+      
+      if (draggedItem.id !== actualTargetId) {
         const isDescendant = (parentId: string | null, checkId: string): boolean => {
           if (!parentId) return false;
           if (parentId === checkId) return true;
@@ -103,13 +125,26 @@ export default function Sidebar({
           return isDescendant(parent.parentId, checkId);
         };
 
-        if (!isDescendant(targetFolderId, draggedItem.id)) {
-          onMoveFolder(draggedItem.id, targetFolderId);
+        if (!isDescendant(actualTargetId, draggedItem.id)) {
+          onMoveFolder(draggedItem.id, actualTargetId);
         }
       }
     } else {
-      // Для range - разрешаем drop только на папки или в ту же папку где был
-      onMoveRange(draggedItem.id, targetFolderId);
+      // Для range
+      let newFolderId: string | null;
+      
+      if (targetType === 'folder') {
+        // Дропаем на папку
+        newFolderId = targetId;
+      } else {
+        // Дропаем на range - помещаем в папку где этот range
+        newFolderId = targetFolderId ?? null;
+      }
+      
+      // Перемещаем только если папка изменилась
+      if (newFolderId !== draggedItem.folderId) {
+        onMoveRange(draggedItem.id, newFolderId);
+      }
     }
 
     setDraggedItem(null);
@@ -185,7 +220,7 @@ export default function Sidebar({
         {childFolders.map(folder => {
           const isExpanded = expandedFolders.has(folder.id);
           const isDragging = draggedItem?.type === 'folder' && draggedItem.id === folder.id;
-          const isDropTarget = dropTarget === folder.id;
+          const isFolderDropTarget = dropTarget?.type === 'folder' && dropTarget.id === folder.id;
           const isCurrentFolder = currentFolderId === folder.id;
 
           return (
@@ -193,12 +228,12 @@ export default function Sidebar({
               <div
                 draggable
                 onDragStart={(e) => handleDragStart(e, 'folder', folder.id)}
-                onDragOver={(e) => handleDragOver(e, folder.id)}
-                onDrop={(e) => handleDrop(e, folder.id)}
+                onDragOver={(e) => handleDragOver(e, 'folder', folder.id)}
+                onDrop={(e) => handleDrop(e, 'folder', folder.id)}
                 onDragEnd={handleDragEnd}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer group
                   ${isDragging ? 'opacity-50' : ''}
-                  ${isDropTarget ? 'bg-blue-100 border-2 border-blue-400' : 'hover:bg-slate-100'}
+                  ${isFolderDropTarget ? 'bg-blue-100 border-2 border-blue-400' : 'hover:bg-slate-100'}
                   ${isCurrentFolder ? 'bg-slate-200' : ''}`}
                 style={{ paddingLeft: `${level * 16 + 12}px` }}
                 onClick={(e) => {
@@ -223,19 +258,22 @@ export default function Sidebar({
         })}
         {childRanges.map(range => {
           const isDragging = draggedItem?.type === 'range' && draggedItem.id === range.id;
+          const isRangeDropTarget = dropTarget?.type === 'range' && dropTarget.id === parentId && draggedItem?.id !== range.id;
 
           return (
             <div
               key={range.id}
               draggable
               onDragStart={(e) => handleDragStart(e, 'range', range.id, range.folderId)}
-              onDragOver={(e) => handleDragOver(e, parentId)}
+              onDragOver={(e) => handleDragOver(e, 'range', range.id, parentId)}
+              onDrop={(e) => handleDrop(e, 'range', range.id, parentId)}
               onDragEnd={handleDragEnd}
               onContextMenu={(e) => handleRangeContextMenu(e, range.id)}
               onClick={(e) => handleRangeClick(e, range.id)}
-              className={`flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg cursor-pointer
-                ${currentRangeId === range.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''}
-                ${isDragging ? 'opacity-50' : ''}`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors
+                ${currentRangeId === range.id ? 'bg-blue-50 border-l-4 border-blue-500' : 'hover:bg-slate-100'}
+                ${isDragging ? 'opacity-50' : ''}
+                ${isRangeDropTarget ? 'bg-green-50 border-l-4 border-green-400' : ''}`}
               style={{ paddingLeft: `${level * 16 + 44}px` }}
             >
               <LayoutGrid size={16} className="text-green-500 flex-shrink-0" />
@@ -263,9 +301,7 @@ export default function Sidebar({
         </button>
       </div>
 
-      <div
-        className="flex-1 overflow-y-auto p-3 space-y-1"
-      >
+      <div className="flex-1 overflow-y-auto p-3 space-y-1">
         {renderFolderTree(null)}
       </div>
 
@@ -370,7 +406,7 @@ export default function Sidebar({
           </button>
           <button
             onClick={handleDeleteClick}
-            className="w-full px-4 py-2 text-left hover:bg-blue-50 text-red-600
+            className="w-full px-4 py-2 text-left hover:bg-red-50 text-red-600
                        font-semibold transition-colors flex items-center gap-2"
           >
             <Trash2 size={16} />
