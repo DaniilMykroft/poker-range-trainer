@@ -74,6 +74,7 @@ export default function Sidebar({
 
   const handleDragOver = (e: React.DragEvent, targetFolderId: string | null) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
 
     if (!draggedItem) return;
@@ -226,6 +227,7 @@ export default function Sidebar({
               key={range.id}
               draggable
               onDragStart={(e) => handleDragStart(e, 'range', range.id)}
+              onDragOver={(e) => handleDragOver(e, parentId)}
               onDragEnd={handleDragEnd}
               onContextMenu={(e) => handleRangeContextMenu(e, range.id)}
               onClick={(e) => handleRangeClick(e, range.id)}
