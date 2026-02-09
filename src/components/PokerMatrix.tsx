@@ -47,19 +47,20 @@ export default function PokerMatrix({
     if (!activeColor || isTrainerMode) return;
     
     const index = getCellIndex(row, col);
-    const newCells = [...cells];
     
-    if (newCells[index].color === activeColor && newCells[index].actionId === activeActionId) {
-      newCells[index].color = null;
-      newCells[index].actionId = null;
-    } else {
-      newCells[index].color = activeColor;
-      newCells[index].actionId = activeActionId;
-    }
-    
-    onCellsChange(newCells);
-  }, [activeColor, activeActionId, cells, getCellIndex, onCellsChange, isTrainerMode]);
-
+    onCellsChange(prevCells => {
+      const newCells = [...prevCells];
+      
+      if (newCells[index].color === activeColor && newCells[index].actionId === activeActionId) {
+        newCells[index].color = null;
+        newCells[index].actionId = null;
+      } else {
+        newCells[index].color = activeColor;
+        newCells[index].actionId = activeActionId;
+      }
+      
+      return newCells;
+  });}, [activeColor, activeActionId, getCellIndex, onCellsChange, isTrainerMode]);
   const handleMouseDown = useCallback((e: React.MouseEvent, row: number, col: number) => {
     if (isTrainerMode && comparisonCells) {
       return;
