@@ -1,5 +1,4 @@
-64
-  import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { MatrixCell } from '../types/poker';
 import { generatePokerMatrix } from '../utils/pokerHands';
 
@@ -62,7 +61,8 @@ export default function PokerMatrix({
       
       return newCells;
   });
-}, [activeColor, activeActionId, getCellIndex, isTrainerMode, onCellsChange]);    if (isTrainerMode && comparisonCells) {
+}, [activeColor, activeActionId, getCellIndex, onCellsChange, isTrainerMode]);  const handleMouseDown = useCallback((e: React.MouseEvent, row: number, col: number) => {
+    if (isTrainerMode && comparisonCells) {
       return;
     }
     e.preventDefault(); // Предотвращаем выделение текста
