@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, from 'react';
 import { MatrixCell } from '../types/poker';
 import { generatePokerMatrix } from '../utils/pokerHands';
 
