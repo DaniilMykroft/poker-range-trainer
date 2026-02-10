@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+64
+  import { useState, useRef, useEffect, useCallback } from 'react';
 import { MatrixCell } from '../types/poker';
 import { generatePokerMatrix } from '../utils/pokerHands';
 
@@ -61,7 +62,7 @@ export default function PokerMatrix({
       
       return newCells;
   });
-}, [activeColor, activeActionId, getCellIndex, isTrainerMode]);    if (isTrainerMode && comparisonCells) {
+}, [activeColor, activeActionId, getCellIndex, isTrainerMode, onCellsChange]);    if (isTrainerMode && comparisonCells) {
       return;
     }
     e.preventDefault(); // Предотвращаем выделение текста
