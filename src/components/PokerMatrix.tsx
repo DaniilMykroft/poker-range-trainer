@@ -39,7 +39,7 @@ export default function PokerMatrix({
       }
       onCellsChange(initialCells);
     }
-  }}, [onCellsChange]);); // Пустой массив зависимостей - выполняется только при монтировании
+  }, [onCellsChange]); // Пустой массив зависимостей - выполняется только при монтировании
 
   const getCellIndex = useCallback((row: number, col: number) => row * 13 + col, []);
 
