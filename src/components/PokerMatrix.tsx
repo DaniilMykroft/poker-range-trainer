@@ -61,8 +61,7 @@ export default function PokerMatrix({
       
       return newCells;
   });
-}, [activeColor, activeActionId, getCellIndex, onCellsChange, isTrainerMode]);  const handleMouseDown = useCallback((e: React.MouseEvent, row: number, col: number) => {
-    if (isTrainerMode && comparisonCells) {
+}, [activeColor, activeActionId, getCellIndex, isTrainerMode]);    if (isTrainerMode && comparisonCells) {
       return;
     }
     e.preventDefault(); // Предотвращаем выделение текста
