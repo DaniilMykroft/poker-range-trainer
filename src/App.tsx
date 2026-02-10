@@ -14,7 +14,7 @@ function App() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [currentRangeId, setCurrentRangeId] = useState<string | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
 
   useEffect(() => {
     const loadData = async () => {
